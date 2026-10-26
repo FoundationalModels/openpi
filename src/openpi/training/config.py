@@ -601,7 +601,7 @@ _CONFIGS = [
             repo_id="local/libero_goal_matched_150_multi_targets",
             base_config=DataConfig(prompt_from_task=True),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_libero/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         # Freeze original LLM/expert transformer weights, train their adapters.
         # SigLIP and action projections remain fully trainable.
         freeze_filter=_MATCHED_LORA_MODEL.get_freeze_filter(),
