@@ -356,6 +356,33 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
 
 
 @dataclasses.dataclass(frozen=True)
+class LeRobotMatchedLiberoDataConfig(LeRobotLiberoDataConfig):
+    """Legacy LangGap column adapter; standard-schema exports use LeRobotLiberoDataConfig."""
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        if self.extra_delta_transform:
+            raise ValueError("Matched LIBERO actions are already deltas; do not apply another delta transform.")
+        return dataclasses.replace(
+            super().create(assets_dirs, model_config),
+            action_sequence_keys=("action",),
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "observation/image": "observation.images.image",
+                            "observation/wrist_image": "observation.images.image2",
+                            "observation/state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                        }
+                    ),
+                ],
+            ),
+        )
+
+
+@dataclasses.dataclass(frozen=True)
 class RLDSDroidDataConfig(DataConfigFactory):
     """
     Config for training on DROID, using RLDS data format (for efficient training on larger datasets).
@@ -556,8 +583,34 @@ class TrainConfig:
             raise ValueError("Cannot resume and overwrite at the same time.")
 
 
+# Share the model definition so the adapter variants and freeze filter cannot drift.
+_MATCHED_LORA_MODEL = pi0_config.Pi0Config(
+    pi05=True,
+    action_horizon=10,
+    discrete_state_input=False,
+    paligemma_variant="gemma_2b_lora",
+    action_expert_variant="gemma_300m_lora",
+)
+
 # Use `get_config` if you need to get a config by name in your code.
 _CONFIGS = [
+    TrainConfig(
+        name="pi05_matched_lora",
+        model=_MATCHED_LORA_MODEL,
+        data=LeRobotLiberoDataConfig(
+            repo_id="local/libero_goal_matched_150_multi_targets",
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_libero/params"),
+        # Freeze original LLM/expert transformer weights, train their adapters.
+        # SigLIP and action projections remain fully trainable.
+        freeze_filter=_MATCHED_LORA_MODEL.get_freeze_filter(),
+        ema_decay=None,
+        batch_size=32,
+        num_train_steps=20_000,
+        save_interval=2_000,
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=500, decay_steps=20_000),
+    ),
     #
     # Inference Aloha configs.
     #

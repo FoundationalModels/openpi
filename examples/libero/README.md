@@ -1,5 +1,8 @@
 # LIBERO Benchmark
 
+For LoRA fine-tuning on the parent project's matched LIBERO Goal demos, see
+[the matched training guide](README_matched.md).
+
 This example runs the LIBERO benchmark: https://github.com/Lifelong-Robot-Learning/LIBERO
 
 Note: When updating requirements.txt in this directory, there is an additional flag `--extra-index-url https://download.pytorch.org/whl/cu113` that must be added to the `uv pip compile` command.
